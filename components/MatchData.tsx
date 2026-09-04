@@ -53,12 +53,7 @@ export const MatchData: React.FC<{ scorecard: ScorecardInnings[] | null; isLoadi
             ))}
           </div>
         </div>
-      ) : (
-        <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center text-sm text-gray-500">
-          Batsman data not available — showing totals only.<br/>
-          <span className="font-mono font-bold text-black">{inn.score}/{inn.wickets} ({String(inn.overs)})</span>
-        </div>
-      )}
+      ) : null}
 
       {hasBowler ? (
         <div className="border-2 border-black rounded-xl overflow-hidden">
