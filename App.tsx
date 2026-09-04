@@ -16,6 +16,9 @@ const App: React.FC = () => {
     isCommentaryLoading,
     scorecard,
     isScorecardLoading,
+    scorecardLastSyncedAt,
+    scorecardDataStale,
+    matchesDataStale,
     wsError,
     status,
     activeMatchId,
@@ -25,6 +28,9 @@ const App: React.FC = () => {
     unwatchMatch,
     reloadMatches,
   } = useMatchData();
+  const activeMatch = useMemo(() => matches.find(m => String(m.id) === String(activeMatchId)) ?? null, [matches, activeMatchId]);
+  const detailLastSynced = scorecardLastSyncedAt ?? (activeMatch as unknown as { lastSyncedAt?: string; last_synced_at?: string })?.lastSyncedAt ?? (activeMatch as unknown as { last_synced_at?: string })?.last_synced_at ?? null;
+  const detailStale = scorecardDataStale || matchesDataStale || (activeMatch as unknown as { dataStale?: boolean })?.dataStale || false;
 
   const totalPages = Math.max(1, Math.ceil(matches.length / pageSize));
 
@@ -191,6 +197,8 @@ const App: React.FC = () => {
               isActive={!!activeMatchId}
               isCommentaryLoading={isCommentaryLoading}
               isScorecardLoading={isScorecardLoading}
+              lastSyncedAt={detailLastSynced}
+              dataStale={detailStale}
             />
           </aside>
         </div>

@@ -9,10 +9,14 @@ export interface Match {
   homeScore: number;
   awayScore: number;
   createdAt?: string;
+  lastSyncedAt?: string | null;
+  last_synced_at?: string | null;
+  dataStale?: boolean;
 }
 
 export interface MatchResponse {
   data: Match[];
+  meta?: { dataStale?: boolean };
 }
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
@@ -73,7 +77,7 @@ export interface ScorecardInnings {
 }
 
 export interface ScorecardResponse {
-  data: { scorecard: ScorecardInnings[] | null; cricapi: unknown | null; metadata: unknown; homeScore: number; awayScore: number; status: string };
+  data: { scorecard: ScorecardInnings[] | null; cricapi: unknown | null; metadata: unknown; homeScore: number; awayScore: number; status: string; lastSyncedAt?: string | null; last_synced_at?: string | null; dataStale?: boolean };
 }
 
 // WebSocket Message Types
@@ -88,13 +92,17 @@ export interface WSMessageScore {
   data: {
     homeScore: number;
     awayScore: number;
+    lastSyncedAt?: string | null;
+    last_synced_at?: string | null;
+    dataStale?: boolean;
   };
 }
 
 export interface WSMessageScorecard {
   type: 'scorecard';
   matchId: string | number;
-  data: ScorecardInnings[];
+  lastSyncedAt?: string | null;
+  data: ScorecardInnings[] | { scorecard: ScorecardInnings[]; lastSyncedAt?: string | null; dataStale?: boolean };
 }
 
 export interface WSMessageWelcome {

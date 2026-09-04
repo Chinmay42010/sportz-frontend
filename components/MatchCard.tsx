@@ -66,6 +66,23 @@ export const MatchCard: React.FC<MatchCardProps> = ({ match, isActive, onWatch, 
   
   // Format status for display (Capitalize first letter)
   const displayStatus = match.status.charAt(0).toUpperCase() + match.status.slice(1).toLowerCase();
+  const lastSyncedRaw = (match as unknown as { lastSyncedAt?: string; last_synced_at?: string }).lastSyncedAt ?? (match as unknown as { last_synced_at?: string }).last_synced_at ?? null;
+  const isStale = (match as unknown as { dataStale?: boolean }).dataStale === true;
+  const timeAgo = (() => {
+    if (isStale) return "Updates paused — daily limit reached";
+    if (!lastSyncedRaw) return null;
+    const d = new Date(lastSyncedRaw);
+    const diff = Date.now() - d.getTime();
+    if (Number.isNaN(diff) || diff < 0) return null;
+    const s = Math.floor(diff / 1000);
+    if (s < 60) return "Updated just now";
+    const m = Math.floor(s / 60);
+    if (m < 60) return `Updated ${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `Updated ${h}h ago`;
+    const days = Math.floor(h / 24);
+    return `Updated ${days}d ago`;
+  })();
 
   return (
     <div className={`
@@ -77,16 +94,19 @@ export const MatchCard: React.FC<MatchCardProps> = ({ match, isActive, onWatch, 
         <span className="text-xs font-bold uppercase tracking-wider text-gray-500 border border-black rounded-full px-2 py-0.5">
           {match.sport}
         </span>
-        <div className="flex items-center gap-2">
-          {isLive && (
-            <span className="flex h-3 w-3 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border border-black"></span>
+        <div className="flex flex-col items-end gap-0.5">
+          <div className="flex items-center gap-2">
+            {isLive && (
+              <span className="flex h-3 w-3 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border border-black"></span>
+              </span>
+            )}
+            <span className={`text-sm font-medium ${isLive ? 'text-red-600' : 'text-gray-600'}`}>
+              {displayStatus}
             </span>
-          )}
-          <span className={`text-sm font-medium ${isLive ? 'text-red-600' : 'text-gray-600'}`}>
-            {displayStatus}
-          </span>
+          </div>
+          {timeAgo && <span className={`text-[11px] font-mono ${isStale ? 'text-amber-600 font-bold' : 'text-gray-500'}`} title={lastSyncedRaw ?? ""}>{timeAgo}</span>}
         </div>
       </div>
 

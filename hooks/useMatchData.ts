@@ -11,6 +11,9 @@ interface UseMatchData {
   isCommentaryLoading: boolean;
   scorecard: ScorecardInnings[] | null;
   isScorecardLoading: boolean;
+  scorecardLastSyncedAt?: string | null;
+  scorecardDataStale?: boolean;
+  matchesDataStale?: boolean;
   wsError: string | null;
   status: ReturnType<typeof useWebSocket>["status"];
   activeMatchId: string | number | null;
@@ -29,6 +32,9 @@ export const useMatchData = (): UseMatchData => {
   const [isCommentaryLoading, setIsCommentaryLoading] = useState(false);
   const [scorecard, setScorecard] = useState<ScorecardInnings[] | null>(null);
   const [isScorecardLoading, setIsScorecardLoading] = useState(false);
+  const [scorecardLastSyncedAt, setScorecardLastSyncedAt] = useState<string | null>(null);
+  const [scorecardDataStale, setScorecardDataStale] = useState(false);
+  const [matchesDataStale, setMatchesDataStale] = useState(false);
   const [wsError, setWsError] = useState<string | null>(null);
   const [activeMatchId, setActiveMatchId] = useState<string | number | null>(null);
   const [newMatchesCount, setNewMatchesCount] = useState(0);
@@ -49,19 +55,51 @@ export const useMatchData = (): UseMatchData => {
             // Loose equality check for ID (string vs number)
             // eslint-disable-next-line eqeqeq
             if (m.id == msg.matchId) {
+              const lastSynced = (msg.data as unknown as { lastSyncedAt?: string; last_synced_at?: string }).lastSyncedAt ?? (msg.data as unknown as { last_synced_at?: string }).last_synced_at ?? null;
+              const stale = (msg.data as unknown as { dataStale?: boolean }).dataStale;
               return {
                 ...m,
                 homeScore: msg.data.homeScore,
                 awayScore: msg.data.awayScore,
+                ...(lastSynced ? { lastSyncedAt: lastSynced, last_synced_at: lastSynced } : {}),
+                ...(stale !== undefined ? { dataStale: stale } : {}),
               };
             }
             return m;
           })
         );
+        // also keep scorecard freshness for active match
+        if (latestMatchIdRef.current != null && String(msg.matchId) === String(latestMatchIdRef.current)) {
+          const ls = (msg.data as unknown as { lastSyncedAt?: string }).lastSyncedAt ?? null;
+          if (ls) setScorecardLastSyncedAt(ls);
+          const stale = (msg.data as unknown as { dataStale?: boolean }).dataStale;
+          if (stale !== undefined) setScorecardDataStale(stale);
+        }
         break;
       case "scorecard": {
         if (latestMatchIdRef.current == null || msg.matchId != latestMatchIdRef.current) return;
-        setScorecard(msg.data as unknown as ScorecardInnings[]);
+        // support both array and {scorecard,lastSyncedAt,dataStale} shapes
+        const rawData = msg.data as unknown;
+        const lastSynced = (msg as unknown as { lastSyncedAt?: string }).lastSyncedAt ?? (rawData as unknown as { lastSyncedAt?: string })?.lastSyncedAt ?? null;
+        const stale = (msg as unknown as { dataStale?: boolean }).dataStale ?? (rawData as unknown as { dataStale?: boolean })?.dataStale;
+        if (stale !== undefined) setScorecardDataStale(!!stale);
+        if (Array.isArray(rawData)) {
+          setScorecard(rawData as unknown as ScorecardInnings[]);
+          if (lastSynced) setScorecardLastSyncedAt(lastSynced);
+        } else if (rawData && typeof rawData === "object" && "scorecard" in (rawData as Record<string, unknown>)) {
+          const obj = rawData as { scorecard: ScorecardInnings[]; lastSyncedAt?: string | null; dataStale?: boolean };
+          setScorecard(obj.scorecard as unknown as ScorecardInnings[]);
+          setScorecardLastSyncedAt(obj.lastSyncedAt ?? lastSynced ?? null);
+          if (obj.dataStale !== undefined) setScorecardDataStale(!!obj.dataStale);
+        } else {
+          setScorecard(rawData as unknown as ScorecardInnings[]);
+        }
+        if (lastSynced) {
+          setMatches(prev => prev.map(m => String(m.id) === String(msg.matchId) ? { ...m, lastSyncedAt: lastSynced, last_synced_at: lastSynced } : m));
+        }
+        if (stale !== undefined) {
+          setMatches(prev => prev.map(m => String(m.id) === String(msg.matchId) ? { ...m, dataStale: !!stale } : m));
+        }
         break;
       }
       case "commentary": {
@@ -109,6 +147,9 @@ export const useMatchData = (): UseMatchData => {
     try {
       const data = await fetchMatches(100);
       const nextMatches = data.data || [];
+      const metaStale = (data as unknown as { meta?: { dataStale?: boolean } }).meta?.dataStale;
+      if (metaStale !== undefined) setMatchesDataStale(!!metaStale);
+      // also propagate per-match dataStale if backend sent it
       const nextMatchIds = new Set(nextMatches.map((match) => String(match.id)));
       setMatches((prevMatches) => {
         const prevById = new Map(
@@ -210,7 +251,8 @@ export const useMatchData = (): UseMatchData => {
     (id: string | number) => {
       setCommentary([]);
       setScorecard(null);
-      setIsCommentaryLoading(true);
+      setScorecardLastSyncedAt(null);
+      setScorecardDataStale(false);
       setIsScorecardLoading(true);
       setWsError(null);
       latestMatchIdRef.current = id;
@@ -236,6 +278,10 @@ export const useMatchData = (): UseMatchData => {
       fetchMatchScorecard(id)
         .then((res) => {
           if (latestMatchIdRef.current == id) {
+            const lastSynced = (res.data as unknown as { lastSyncedAt?: string; last_synced_at?: string })?.lastSyncedAt ?? (res.data as unknown as { last_synced_at?: string })?.last_synced_at ?? null;
+            if (lastSynced) setScorecardLastSyncedAt(lastSynced);
+            const stale = (res.data as unknown as { dataStale?: boolean })?.dataStale;
+            if (stale !== undefined) setScorecardDataStale(!!stale);
             const sc = res.data?.scorecard;
             if (Array.isArray(sc) && sc.length) setScorecard(sc as unknown as ScorecardInnings[]);
             else if (res.data?.cricapi) {
@@ -267,6 +313,8 @@ export const useMatchData = (): UseMatchData => {
         setCommentary([]);
         setIsCommentaryLoading(false);
         setScorecard(null);
+        setScorecardLastSyncedAt(null);
+        setScorecardDataStale(false);
         setIsScorecardLoading(false);
       }
     },
@@ -281,6 +329,9 @@ export const useMatchData = (): UseMatchData => {
     isCommentaryLoading,
     scorecard,
     isScorecardLoading,
+    scorecardLastSyncedAt,
+    scorecardDataStale,
+    matchesDataStale,
     wsError,
     status,
     activeMatchId,
