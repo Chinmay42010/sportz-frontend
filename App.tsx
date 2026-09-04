@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useMatchData } from "./hooks/useMatchData";
 import { MatchCard } from "./components/MatchCard";
-import { LiveFeed } from "./components/LiveFeed";
+import { MatchDetail } from "./components/MatchDetail";
 import { StatusIndicator } from "./components/StatusIndicator";
 import { API_BASE_URL, WS_BASE_URL } from "./constants";
 
@@ -14,6 +14,8 @@ const App: React.FC = () => {
     error,
     commentary,
     isCommentaryLoading,
+    scorecard,
+    isScorecardLoading,
     wsError,
     status,
     activeMatchId,
@@ -181,12 +183,14 @@ const App: React.FC = () => {
             )}
           </main>
 
-          {/* Right Column: Live Feed (Sticky on Desktop) */}
+          {/* Right Column: Match Data + Commentary Tabs (Sticky on Desktop) */}
           <aside className="lg:col-span-1 h-[500px] lg:h-[calc(100vh-140px)] lg:sticky lg:top-8">
-            <LiveFeed
-              messages={commentary}
+            <MatchDetail
+              commentary={commentary}
+              scorecard={scorecard}
               isActive={!!activeMatchId}
-              isLoading={isCommentaryLoading}
+              isCommentaryLoading={isCommentaryLoading}
+              isScorecardLoading={isScorecardLoading}
             />
           </aside>
         </div>

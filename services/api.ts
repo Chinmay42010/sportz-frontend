@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "../constants";
-import { CommentaryResponse, MatchResponse } from "../types";
+import { CommentaryResponse, MatchResponse, ScorecardResponse } from "../types";
 
 export const fetchMatches = async (limit = 50): Promise<MatchResponse> => {
   try {
@@ -40,4 +40,12 @@ export const fetchMatchCommentary = async (
   } catch (error) {
     throw error;
   }
+};
+
+export const fetchMatchScorecard = async (
+  matchId: string | number
+): Promise<ScorecardResponse> => {
+  const res = await fetch(`${API_BASE_URL}/matches/${matchId}/scorecard`, { method: "GET" });
+  if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`);
+  return await res.json();
 };

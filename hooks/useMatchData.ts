@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchMatchCommentary, fetchMatches } from "../services/api";
-import { Commentary, Match, WSMessage } from "../types";
+import { fetchMatchCommentary, fetchMatches, fetchMatchScorecard } from "../services/api";
+import { Commentary, Match, WSMessage, ScorecardInnings } from "../types";
 import { useWebSocket } from "./useWebSocket";
 
 interface UseMatchData {
@@ -9,6 +9,8 @@ interface UseMatchData {
   error: string | null;
   commentary: Commentary[];
   isCommentaryLoading: boolean;
+  scorecard: ScorecardInnings[] | null;
+  isScorecardLoading: boolean;
   wsError: string | null;
   status: ReturnType<typeof useWebSocket>["status"];
   activeMatchId: string | number | null;
@@ -25,6 +27,8 @@ export const useMatchData = (): UseMatchData => {
   const [error, setError] = useState<string | null>(null);
   const [commentary, setCommentary] = useState<Commentary[]>([]);
   const [isCommentaryLoading, setIsCommentaryLoading] = useState(false);
+  const [scorecard, setScorecard] = useState<ScorecardInnings[] | null>(null);
+  const [isScorecardLoading, setIsScorecardLoading] = useState(false);
   const [wsError, setWsError] = useState<string | null>(null);
   const [activeMatchId, setActiveMatchId] = useState<string | number | null>(null);
   const [newMatchesCount, setNewMatchesCount] = useState(0);
@@ -55,6 +59,11 @@ export const useMatchData = (): UseMatchData => {
           })
         );
         break;
+      case "scorecard": {
+        if (latestMatchIdRef.current == null || msg.matchId != latestMatchIdRef.current) return;
+        setScorecard(msg.data as unknown as ScorecardInnings[]);
+        break;
+      }
       case "commentary": {
         if (
           latestMatchIdRef.current == null ||
@@ -200,7 +209,9 @@ export const useMatchData = (): UseMatchData => {
   const watchMatch = useCallback(
     (id: string | number) => {
       setCommentary([]);
+      setScorecard(null);
       setIsCommentaryLoading(true);
+      setIsScorecardLoading(true);
       setWsError(null);
       latestMatchIdRef.current = id;
       if (activeMatchId != null && activeMatchId != id) {
@@ -214,20 +225,33 @@ export const useMatchData = (): UseMatchData => {
       subscribeMatch(id);
       fetchMatchCommentary(id)
         .then((data) => {
-          if (latestMatchIdRef.current == id) {
-            setCommentary(data.data || []);
-          }
+          if (latestMatchIdRef.current == id) setCommentary(data.data || []);
         })
         .catch(() => {
-          if (latestMatchIdRef.current == id) {
-            setCommentary([]);
-          }
+          if (latestMatchIdRef.current == id) setCommentary([]);
         })
         .finally(() => {
-          if (latestMatchIdRef.current == id) {
-            setIsCommentaryLoading(false);
-          }
+          if (latestMatchIdRef.current == id) setIsCommentaryLoading(false);
         });
+      fetchMatchScorecard(id)
+        .then((res) => {
+          if (latestMatchIdRef.current == id) {
+            const sc = res.data?.scorecard;
+            if (Array.isArray(sc) && sc.length) setScorecard(sc as unknown as ScorecardInnings[]);
+            else if (res.data?.cricapi) {
+              // fallback: make synthetic innings from cricapi score when no cricbuzz yet
+              const ca = res.data.cricapi as unknown as { score?: unknown[] };
+              if (Array.isArray(ca?.score) && (ca.score as unknown[]).length) {
+                const s = ca.score as unknown as Array<{ r: number; w: number; o: number; inning: string }>;
+                setScorecard([{
+                  inningsId: 1, batTeam: "Live", score: s[0]?.r ?? 0, wickets: s[0]?.w ?? 0, overs: s[0]?.o ?? 0, runRate: null, extras: null, fow: [], batsman: [], bowler: []
+                }] as unknown as ScorecardInnings[]);
+              } else setScorecard(null);
+            } else setScorecard(null);
+          }
+        })
+        .catch(() => { if (latestMatchIdRef.current == id) setScorecard(null); })
+        .finally(() => { if (latestMatchIdRef.current == id) setIsScorecardLoading(false); });
     },
     [activeMatchId, subscribeMatch, unsubscribeMatch]
   );
@@ -242,6 +266,8 @@ export const useMatchData = (): UseMatchData => {
         latestMatchIdRef.current = null;
         setCommentary([]);
         setIsCommentaryLoading(false);
+        setScorecard(null);
+        setIsScorecardLoading(false);
       }
     },
     [activeMatchId, unsubscribeMatch]
@@ -253,6 +279,8 @@ export const useMatchData = (): UseMatchData => {
     error,
     commentary,
     isCommentaryLoading,
+    scorecard,
+    isScorecardLoading,
     wsError,
     status,
     activeMatchId,

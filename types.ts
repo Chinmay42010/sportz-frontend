@@ -36,6 +36,46 @@ export interface CommentaryResponse {
   data: Commentary[];
 }
 
+export interface ScorecardBatsman {
+  id?: number;
+  name: string;
+  runs: number;
+  balls: number;
+  fours?: number;
+  sixes?: number;
+  sr?: string;
+  out?: string;
+  isCaptain?: boolean;
+  isKeeper?: boolean;
+}
+
+export interface ScorecardBowler {
+  id?: number;
+  name: string;
+  overs: string;
+  maidens?: number;
+  wickets: number;
+  runs: number;
+  economy?: string;
+}
+
+export interface ScorecardInnings {
+  inningsId: number;
+  batTeam?: string;
+  score: number;
+  wickets: number;
+  overs: number | string;
+  runRate?: number | string | null;
+  extras?: Record<string, unknown> | null;
+  fow?: unknown[];
+  batsman: ScorecardBatsman[];
+  bowler: ScorecardBowler[];
+}
+
+export interface ScorecardResponse {
+  data: { scorecard: ScorecardInnings[] | null; cricapi: unknown | null; metadata: unknown; homeScore: number; awayScore: number; status: string };
+}
+
 // WebSocket Message Types
 export interface WSMessageCommentary {
   type: 'commentary';
@@ -49,6 +89,12 @@ export interface WSMessageScore {
     homeScore: number;
     awayScore: number;
   };
+}
+
+export interface WSMessageScorecard {
+  type: 'scorecard';
+  matchId: string | number;
+  data: ScorecardInnings[];
 }
 
 export interface WSMessageWelcome {
@@ -92,6 +138,7 @@ export interface WSMessageUnsubscribedAll {
 export type WSMessage =
   | WSMessageCommentary
   | WSMessageScore
+  | WSMessageScorecard
   | WSMessageWelcome
   | WSMessagePong
   | WSMessageError
