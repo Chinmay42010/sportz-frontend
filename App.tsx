@@ -47,7 +47,7 @@ const App: React.FC = () => {
             <h1 className="text-3xl font-black tracking-tight text-brand-dark mb-1">
               Sportz
             </h1>
-            <p className="text-sm font-medium opacity-80">Real-time match data demo</p>
+            <p className="text-sm font-medium opacity-80">Real-time </p>
           </div>
           <div className="flex flex-col items-end gap-2">
             <StatusIndicator status={status} />
